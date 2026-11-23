@@ -1177,12 +1177,12 @@ function saveAcc(btn, i, id) {
 }
 function userForm(id) {
   var u = SET.usuarios.filter(function (x) { return x.id === id; })[0] || { nombre: '', email: '', rol: 'jefa', activo: true };
-  $('#uform').innerHTML = '<div class="card" style="background:#fbfaf6"><div class="grid2">' + fld('Nombre', 'uN', u.nombre) + fld('Email', 'uE', u.email, 'type="email"') +
+  $('#uform').innerHTML = '<div class="card" style="background:#fbfaf6"><div class="grid2">' + fld('Nombre', 'uN', u.nombre) + fld('Email', 'uE', u.email, 'type="email"') + fld('Celular (sus hijos no pagan)', 'uC', u.celular, 'inputmode="tel"') +
     sel('Rol', 'uR', [['admin', 'Administrador (ve todo)'], ['directora', 'Directora (ve todo)'], ['secretaria', 'Secretaria'], ['jefa', 'Jefa de madrijot (solo gastos y listas)']], u.rol) + '</div>' +
     '<label class="chk"><input type="checkbox" id="uA" ' + (u.activo ? 'checked' : '') + '><span>Activo</span></label>' +
     '<div class="actions"><button class="btn sm" onclick="saveUser(this,\'' + (u.id || '') + '\')">Guardar</button></div></div>';
 }
-function saveUser(btn, id) { busy(btn, call('saveUser', { id: id, nombre: v('uN'), email: v('uE'), rol: v('uR'), activo: v('uA') })).then(function (d) { SET = d; renderSettings(d.pinNuevo); window.scrollTo(0, 0); }).catch(fail); }
+function saveUser(btn, id) { busy(btn, call('saveUser', { id: id, nombre: v('uN'), email: v('uE'), celular: v('uC'), rol: v('uR'), activo: v('uA') })).then(function (d) { SET = d; renderSettings(d.pinNuevo); window.scrollTo(0, 0); }).catch(fail); }
 function resetPin(id, n) { if (!confirm('¿Generar un PIN nuevo para ' + n + '?')) return; call('resetPin', { id: id }).then(function (r) { renderSettings(r.pin); window.scrollTo(0, 0); }).catch(fail); }
 
 // ---------------------------------------------------------------- archivos y cuenta

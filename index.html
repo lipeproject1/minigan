@@ -471,7 +471,11 @@ function nextKids() {
     if (!String(k.retiraCon || '').trim()) { $('#er').textContent = 'Falta con quién se retira ' + k.nombre + '.'; return; }
     if (!k.semanas.length) { $('#er').textContent = 'Marcá las semanas que viene ' + k.nombre + '.'; return; }
   }
-  go('resumen');
+  // ¿familia del staff? (por email o celular) → el resumen muestra total $0
+  var btn = document.querySelector('button[onclick^="nextKids"]');
+  busy(btn, server('pub', ['staffCheck', { token: S.token, celMama: S.fam.celMama, celPapa: S.fam.celPapa }]))
+    .then(function (r) { S.estado = S.estado || {}; S.estado.esStaff = !!(r && r.esStaff); go('resumen'); })
+    .catch(function () { go('resumen'); });
 }
 
 function submitReg(btn) {
