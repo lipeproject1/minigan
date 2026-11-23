@@ -170,6 +170,20 @@ function serverFetch(fn, args) {
     });
 }
 
+/**
+ * Pide datos que cambian poco (configuración): si hay una copia guardada en este aparato se usa al instante
+ * y después llega la versión nueva. onData(data, fresh, hadCache).
+ */
+function cachedServer(key, fn, args, onData, onError) {
+  var had = null;
+  try { had = JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) { had = null; }
+  if (had) onData(had, false, true);
+  return server(fn, args).then(function (d) {
+    try { localStorage.setItem(key, JSON.stringify(d)); } catch (e) {}
+    onData(d, true, !!had);
+  }).catch(function (e) { if (!had && onError) onError(e); });
+}
+
 /** Pone un botón en estado "cargando" mientras corre la promesa. */
 function busy(btn, promise) {
   if (!btn) return promise;
@@ -237,8 +251,8 @@ function salaFor(cfg, grado, sexo) {
 
 <script>
 var CFG = null;
-server('pub', ['config', {}]).then(function (c) { CFG = c; $('#hname').textContent = c.nombre; $('#hk').textContent = 'Madrijot · Temporada ' + c.temporada; render(); })
-  .catch(function (e) { $('#app').innerHTML = '<div class="card err">' + esc(e.message) + '</div>'; });
+cachedServer('mgi_cfg', 'pub', ['config', {}], function (c, fresh, hadCache) { CFG = c; $('#hname').textContent = c.nombre; $('#hk').textContent = 'Madrijot · Temporada ' + c.temporada; if (!hadCache || !fresh) render(); },
+  function (e) { $('#app').innerHTML = '<div class="card err">' + esc(e.message) + '</div>'; });
 
 function t(label, id, extra) { return '<div><label>' + label + '</label><input id="' + id + '" ' + (extra || '') + '></div>'; }
 function ta(label, id) { return '<label>' + label + '</label><textarea id="' + id + '"></textarea>'; }

@@ -201,6 +201,20 @@ function serverFetch(fn, args) {
     });
 }
 
+/**
+ * Pide datos que cambian poco (configuración): si hay una copia guardada en este aparato se usa al instante
+ * y después llega la versión nueva. onData(data, fresh, hadCache).
+ */
+function cachedServer(key, fn, args, onData, onError) {
+  var had = null;
+  try { had = JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) { had = null; }
+  if (had) onData(had, false, true);
+  return server(fn, args).then(function (d) {
+    try { localStorage.setItem(key, JSON.stringify(d)); } catch (e) {}
+    onData(d, true, !!had);
+  }).catch(function (e) { if (!had && onError) onError(e); });
+}
+
 /** Pone un botón en estado "cargando" mientras corre la promesa. */
 function busy(btn, promise) {
   if (!btn) return promise;
@@ -299,27 +313,36 @@ function call(action, payload) {
 function fail(e) { toast(e.message || String(e), true); }
 
 // ---------------------------------------------------------------- login
-(function init() {
+var BOOT_HOME = null;
+setTimeout(function init() {
   TOKEN = store('mgi_token');
   if (!TOKEN) return showLogin();
-  call('me').then(function (r) { start(r.user, r); }).catch(function () { showLogin(); });
-})();
+  // arranque instantáneo con lo último que se vio en este aparato; enseguida se actualiza
+  var cached = null; try { cached = JSON.parse(store('mgi_boot') || 'null'); } catch (e) {}
+  if (cached && cached.token === TOKEN) { BOOT_HOME = cached.b.home; start(cached.b.me.user, cached.b.me, cached.b.meta); }
+  call('boot').then(function (b) {
+    saveBoot(b);
+    if (cached && cached.token === TOKEN) { META = b.meta; if (CUR === 'inicio') { BOOT_HOME = b.home; VIEWS.inicio(); } }
+    else { BOOT_HOME = b.home; start(b.me.user, b.me, b.meta); }
+  }).catch(function (e) { if (!cached || e.auth) showLogin(); });
+}, 0);
+function saveBoot(b) { store('mgi_boot', JSON.stringify({ token: TOKEN, b: b })); }
 function showLogin() { $('#login').classList.remove('hide'); $('#shell').classList.add('hide'); var e = store('mgi_email'); if (e) { $('#lem').value = e; $('#lpin').focus(); } }
 function doLogin(btn) {
   var em = $('#lem').value.trim(), pin = $('#lpin').value.trim();
   if (!em || !pin) { $('#ler').textContent = 'Completá email y PIN'; return; }
   busy(btn, server('login', [em, pin])).then(function (r) {
     TOKEN = r.token; store('mgi_token', TOKEN); store('mgi_email', em); $('#lpin').value = '';
-    return call('me').then(function (m) { start(r.user, m); });
+    return call('boot').then(function (b) { saveBoot(b); BOOT_HOME = b.home; start(b.me.user, b.me, b.meta); });
   }).catch(function (e) { $('#ler').textContent = e.message; });
 }
 function logout(expired) {
   if (!expired && TOKEN) call('logout').catch(function () {});
-  TOKEN = null; store('mgi_token', null); USER = null; closeModal();
+  TOKEN = null; store('mgi_token', null); USER = null; closeModal(); store('mgi_boot', null);
   try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
   showLogin(); if (expired) $('#ler').textContent = 'La sesión venció, volvé a entrar.';
 }
-function start(user, me) {
+function start(user, me, meta) {
   USER = user;
   var lt = $('#logoTop'), li = $('#logoImg'); if (lt && li && !lt.src) lt.src = li.src;
   $('#login').classList.add('hide'); $('#shell').classList.remove('hide');
@@ -327,7 +350,7 @@ function start(user, me) {
   $('#who').textContent = user.nombre + ' — ' + user.rolNombre;
   $('#tabs').innerHTML = TABS.filter(function (t) { return t[2].indexOf(user.rol) !== -1; })
     .map(function (t) { return '<button data-t="' + t[0] + '" onclick="show(\'' + t[0] + '\')">' + t[1] + '</button>'; }).join('');
-  loadMeta().then(function () { show(location.hash ? location.hash.substring(1) : 'inicio'); if (user.rol === 'secretaria') checkQuestions(); });
+  (meta ? Promise.resolve(META = meta) : loadMeta()).then(function () { show(location.hash ? location.hash.substring(1) : 'inicio'); if (user.rol === 'secretaria') checkQuestions(); });
 }
 function loadMeta() { return call('meta').then(function (m) { META = m; }).catch(fail); }
 function can(roles) { return USER && roles.split(',').indexOf(USER.rol) !== -1; }
@@ -396,7 +419,8 @@ function salaOpts() { return [['', 'Automática (según grado)']].concat(META.sa
 var VIEWS = {};
 
 VIEWS.inicio = function () {
-  call('home').then(function (d) {
+  var pre = BOOT_HOME; BOOT_HOME = null;
+  (pre ? Promise.resolve(pre) : call('home')).then(function (d) {
     var h = '<h1 style="margin-top:12px">¡Hola, ' + esc(USER.nombre) + '!</h1>';
     if (USER.rol === 'jefa') {
       h += '<div class="stats"><div class="stat"><b>' + d.chicos + '</b><span>chicos inscriptos</span></div><div class="stat"><b>' + money(d.misGastos) + '</b><span>mis gastos cargados</span></div>' +

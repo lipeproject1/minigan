@@ -171,6 +171,20 @@ function serverFetch(fn, args) {
     });
 }
 
+/**
+ * Pide datos que cambian poco (configuración): si hay una copia guardada en este aparato se usa al instante
+ * y después llega la versión nueva. onData(data, fresh, hadCache).
+ */
+function cachedServer(key, fn, args, onData, onError) {
+  var had = null;
+  try { had = JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) { had = null; }
+  if (had) onData(had, false, true);
+  return server(fn, args).then(function (d) {
+    try { localStorage.setItem(key, JSON.stringify(d)); } catch (e) {}
+    onData(d, true, !!had);
+  }).catch(function (e) { if (!had && onError) onError(e); });
+}
+
 /** Pone un botón en estado "cargando" mientras corre la promesa. */
 function busy(btn, promise) {
   if (!btn) return promise;
@@ -240,14 +254,18 @@ function salaFor(cfg, grado, sexo) {
 var S = { cfg: null, step: 'email', email: '', token: '', fam: {}, kids: [], estado: null, acepta: false, comentario: '' };
 var GRADO_HINT = 'En qué sala o grado estuvo durante este año escolar';
 
-server('pub', ['config', {}]).then(function (cfg) {
+function applyCfg(cfg) {
   S.cfg = cfg;
   $('#hname').textContent = cfg.nombre;
   $('#hk').textContent = 'Inscripción · Temporada ' + cfg.temporada;
   var w = cfg.semanas;
   $('#hsub').textContent = w.length ? 'Del ' + fdate(w[0].desde).substring(0, 5) + ' al ' + fdate(w[w.length - 1].hasta) : 'Colonia de verano';
-  render();
-}).catch(function (e) { $('#app').innerHTML = '<div class="card"><div class="err">' + esc(e.message) + '</div></div>'; });
+}
+// se muestra al instante con la configuración guardada en este aparato y se actualiza por detrás
+cachedServer('mgi_cfg', 'pub', ['config', {}], function (cfg, fresh, hadCache) {
+  applyCfg(cfg);
+  if (!hadCache || !fresh) render();
+}, function (e) { $('#app').innerHTML = '<div class="card"><div class="err">' + esc(e.message) + '</div></div>'; });
 
 function go(step) { S.step = step; render(); window.scrollTo(0, 0); }
 
