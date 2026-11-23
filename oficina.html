@@ -675,7 +675,8 @@ function niForm(d) {
   if (!NI.kids.length) NI.kids.push({ id: '', nombre: '', apellido: '', nuevo: true });
   var h = '<div class="card"><h2>' + (d ? 'Familia ' + esc(f.apellido) : 'Familia nueva') + '</h2><div class="grid2">' +
     fld('Apellido *', 'nAp', f.apellido) + fld('Email (para el carnet)', 'nEm', f.email, 'type="email"') + fld('Nombre mamá *', 'nNm', f.nombreMama) + fld('Celular mamá *', 'nCm', f.celMama, 'inputmode="tel"') +
-    fld('Nombre papá', 'nNp', f.nombrePapa) + fld('Celular papá', 'nCp', f.celPapa, 'inputmode="tel"') + fld('Teléfono casa', 'nTc', f.telCasa) + fld('Emergencia', 'nTe', f.telEmergencia) + '</div></div>' +
+    fld('Nombre papá', 'nNp', f.nombrePapa) + fld('Celular papá', 'nCp', f.celPapa, 'inputmode="tel"') + fld('Teléfono casa', 'nTc', f.telCasa) + fld('Emergencia', 'nTe', f.telEmergencia) + '</div>' +
+      '<label class="chk' + (String(f.staff) === 'SI' ? ' on' : '') + '"><input type="checkbox" id="nSt" ' + (String(f.staff) === 'SI' ? 'checked' : '') + ' onchange="this.parentNode.classList.toggle(\'on\',this.checked)"><span><b>Familia del staff</b>: sus hijos no pagan</span></label></div>' +
     '<div id="nkids"></div><button class="btn sec block" onclick="niAddKid()">+ Agregar chico</button>' +
     '<div class="card">' + (can('directora') ? sel('Early bird', 'nEb', [['', 'Automático (según fecha)'], ['si', 'Dar early bird'], ['no', 'Sin early bird']], '') : '') +
     '<label class="chk on"><input type="checkbox" id="nMail" checked><span>Mandar mail con el detalle y cómo pagar</span></label>' +
@@ -713,11 +714,11 @@ function niSave(btn) {
   });
   if (!chicos.length) return toast('Elegí al menos un chico', true);
   var p = { familiaId: NI.familiaId, mandarMail: v('nMail'), chicos: chicos,
-    familia: { apellido: v('nAp'), email: v('nEm'), nombreMama: v('nNm'), celMama: v('nCm'), nombrePapa: v('nNp'), celPapa: v('nCp'), telCasa: v('nTc'), telEmergencia: v('nTe') } };
+    familia: { apellido: v('nAp'), email: v('nEm'), nombreMama: v('nNm'), celMama: v('nCm'), nombrePapa: v('nNp'), celPapa: v('nCp'), telCasa: v('nTc'), telEmergencia: v('nTe'), staff: $('#nSt') && $('#nSt').checked } };
   var eb = v('nEb'); if (eb === 'si') p.earlyBird = true; if (eb === 'no') p.earlyBird = false;
   busy(btn, call('register', p)).then(function (d) {
     toast('¡Inscripción guardada!' + (d.mailEnviado ? ' Mail enviado.' : ''));
-    VIEWS.nueva(); FAM = d; openModal(''); renderFamily(); payForm();
+    VIEWS.nueva(); FAM = d; openModal(''); renderFamily(); if (!(d.saldo && d.saldo.saldo <= 0)) payForm();
     carnetToast(d.carnet);
   }).catch(fail);
 }

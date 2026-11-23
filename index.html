@@ -307,6 +307,7 @@ function render() {
         (pr && pr.desc ? '<div class="small" style="color:var(--ok)">Early bird ' + pr.pct + '% (−' + money(pr.desc) + ')</div>' : '') + '</div><div class="price">' + money(pr ? pr.final : 0) + '</div></div>';
     });
     if (c.materiales) { tot += c.materiales; h += '<div class="tot"><div>Materiales (por familia)</div><div class="price">' + money(c.materiales) + '</div></div>'; }
+    if (S.estado && S.estado.esStaff && tot > 0) { h += '<div class="tot"><div>Sin cargo (familia del staff)</div><div class="price" style="color:var(--ok)">−' + money(tot) + '</div></div>'; tot = 0; }
     h += '<div class="tot big"><div>Total</div><div>' + money(tot) + '</div></div>' +
       '<p class="small muted">Si se aplica algún ajuste especial o ya hiciste pagos, lo vas a ver en el próximo paso.</p></div>';
     h += '<div class="card"><h3>Reglamento</h3><ul class="small">' + String(c.reglamento).split('\n').filter(String).map(function (r) { return '<li>' + esc(r) + '</li>'; }).join('') + '</ul>' +
