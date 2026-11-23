@@ -479,10 +479,31 @@ function openFamily(id, after) {
 }
 function famRefresh(d) { FAM = d; renderFamily(); if (CUR === 'familias') famSearch(); }
 
+/** Buscar a mano otra ficha de la misma familia (cuando el celular o el email no coinciden). */
+function mergePick() {
+  $('#mpick').innerHTML = '<div class="card" style="background:#fbfaf6"><label>Buscá la otra ficha (apellido, mamá, chico o celular)</label><input id="mq" oninput="mergeSearch()"><div id="mres" class="list"></div></div>';
+  $('#mq').value = FAM.familia.apellido || ''; $('#mq').focus(); mergeSearch();
+}
+var MS_T = null;
+function mergeSearch() {
+  clearTimeout(MS_T);
+  MS_T = setTimeout(function () {
+    var q = v('mq'); if (q.length < 2) { $('#mres').innerHTML = ''; return; }
+    call('searchFamilies', { q: q }).then(function (list) {
+      list = list.filter(function (f) { return f.id !== FAM.familia.id; });
+      FAM.duplicados = (FAM.duplicados || []).concat(list.filter(function (f) { return !(FAM.duplicados || []).some(function (x) { return x.id === f.id; }); })
+        .map(function (f) { return { id: f.id, apellido: f.apellido, nombreMama: f.nombreMama, chicos: f.chicos, email: f.email, manual: true }; }));
+      $('#mres').innerHTML = list.length ? list.slice(0, 8).map(function (f) {
+        return '<div class="li"><div><b>' + esc(f.apellido) + '</b> <span class="small muted">' + esc(f.nombreMama || '') + ' · ' + esc(f.chicos || 'sin chicos') + '</span></div>' +
+          '<button class="btn sm" onclick="mergeFam(this,\'' + f.id + '\')">Unir acá</button></div>';
+      }).join('') : '<p class="small muted">No hay otras fichas con eso.</p>';
+    }).catch(fail);
+  }, 300);
+}
 function mergeFam(btn, dupId) {
   var o = (FAM.duplicados || []).filter(function (x) { return x.id === dupId; })[0] || {};
   if (!confirm('¿Unir la ficha de ' + (o.apellido || '') + (o.chicos ? ' (' + o.chicos + ')' : '') + ' con esta?\n\nLos chicos, inscripciones, pagos y emails pasan a esta ficha y la otra se borra. Los chicos con el mismo nombre quedan como uno solo.')) return;
-  busy(btn, call('mergeFamilies', { keepId: FAM.familia.id, dupId: dupId })).then(function (d) { FAM = d; renderFamily(); toast('Fichas unidas ✓'); }).catch(fail);
+  busy(btn, call('mergeFamilies', { keepId: FAM.familia.id, dupId: dupId })).then(function (d) { FAM = d; FAM.duplicados = (d.duplicados || []); renderFamily(); toast('Fichas unidas ✓'); }).catch(fail);
 }
 function renderFamily() {
   var d = FAM, f = d.familia, s = d.saldo;
@@ -498,7 +519,7 @@ function renderFamily() {
     '<b>Email</b><span>' + (f.email ? esc(f.email) + (f.emailsExtra ? '<br><span class="small muted">también: ' + esc(f.emailsExtra) + '</span>' : '') : '<span class="pill warn">sin email: no le llega el carnet</span>') + '</span>' +
     (f.telCasa ? '<b>Casa</b><span>' + esc(f.telCasa) + '</span>' : '') + (f.telEmergencia ? '<b>Emergencia</b><span>' + esc(f.telEmergencia) + '</span>' : '') +
     (f.notas ? '<b>Notas</b><span>' + esc(f.notas) + '</span>' : '') + '</div>' +
-    '<div class="actions"><button class="btn sec sm" onclick="editFamily()">Editar datos</button></div>';
+    '<div class="actions"><button class="btn sec sm" onclick="editFamily()">Editar datos</button><button class="btn ghost sm" onclick="mergePick()">Unir con otra ficha…</button></div><div id="mpick"></div>';
 
   // Saldo
   h += '<div class="card"><div class="tot"><div>Inscripciones</div><div class="price">' + money(s.subtotal) + '</div></div>' +
