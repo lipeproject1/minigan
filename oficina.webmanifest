@@ -1,0 +1,1 @@
+{"name": "Mini Gan Isroel — Oficina", "short_name": "MGI Oficina", "start_url": "oficina.html", "scope": "./", "display": "standalone", "background_color": "#f6f2ea", "theme_color": "#12706C", "icons": [{"src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any"}]}
