@@ -479,13 +479,23 @@ function openFamily(id, after) {
 }
 function famRefresh(d) { FAM = d; renderFamily(); if (CUR === 'familias') famSearch(); }
 
+function mergeFam(btn, dupId) {
+  var o = (FAM.duplicados || []).filter(function (x) { return x.id === dupId; })[0] || {};
+  if (!confirm('¿Unir la ficha de ' + (o.apellido || '') + (o.chicos ? ' (' + o.chicos + ')' : '') + ' con esta?\n\nLos chicos, inscripciones, pagos y emails pasan a esta ficha y la otra se borra. Los chicos con el mismo nombre quedan como uno solo.')) return;
+  busy(btn, call('mergeFamilies', { keepId: FAM.familia.id, dupId: dupId })).then(function (d) { FAM = d; renderFamily(); toast('Fichas unidas ✓'); }).catch(fail);
+}
 function renderFamily() {
   var d = FAM, f = d.familia, s = d.saldo;
   var wa = function (n) { n = String(n || '').replace(/\D/g, ''); return n ? ' <a href="https://wa.me/549' + n + '" target="_blank" class="small">WhatsApp</a>' : ''; };
   var h = '<h2>' + esc(f.apellido) + (String(f.staff) === 'SI' ? ' <span class="pill pri">Familia del staff · no paga</span>' : '') + '</h2>' +
+    (d.duplicados || []).map(function (o) {
+      return '<div class="banner warn">Hay otra ficha que parece de esta misma familia: <b>' + esc(o.apellido) + '</b>' + (o.nombreMama ? ' (' + esc(o.nombreMama) + ')' : '') +
+        (o.chicos ? ' · chicos: ' + esc(o.chicos) : '') + (o.email ? ' · ' + esc(o.email) : '') +
+        ' <button class="btn sm" style="margin-left:6px" onclick="mergeFam(this,\'' + o.id + '\')">Unir acá</button></div>';
+    }).join('') +
     '<div class="kv"><b>Mamá</b><span>' + esc(f.nombreMama) + ' · <a href="tel:' + esc(f.celMama) + '">' + esc(f.celMama) + '</a>' + wa(f.celMama) + '</span>' +
     '<b>Papá</b><span>' + esc(f.nombrePapa) + ' · <a href="tel:' + esc(f.celPapa) + '">' + esc(f.celPapa) + '</a>' + wa(f.celPapa) + '</span>' +
-    '<b>Email</b><span>' + (f.email ? esc(f.email) : '<span class="pill warn">sin email: no le llega el carnet</span>') + '</span>' +
+    '<b>Email</b><span>' + (f.email ? esc(f.email) + (f.emailsExtra ? '<br><span class="small muted">también: ' + esc(f.emailsExtra) + '</span>' : '') : '<span class="pill warn">sin email: no le llega el carnet</span>') + '</span>' +
     (f.telCasa ? '<b>Casa</b><span>' + esc(f.telCasa) + '</span>' : '') + (f.telEmergencia ? '<b>Emergencia</b><span>' + esc(f.telEmergencia) + '</span>' : '') +
     (f.notas ? '<b>Notas</b><span>' + esc(f.notas) + '</span>' : '') + '</div>' +
     '<div class="actions"><button class="btn sec sm" onclick="editFamily()">Editar datos</button></div>';
