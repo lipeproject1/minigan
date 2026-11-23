@@ -364,7 +364,7 @@ function loadFamily(r) {
 }
 
 function blankKid() {
-  return { id: '', nombre: '', apellido: S.fam.apellido || '', sexo: '', fechaNac: '', grado: '', obraSocial: '', nroSocio: '', retiraCon: '', cumpleIvrit: '', alergias: '', inscribir: true, semanas: S.cfg.semanas.map(function (w) { return w.numero; }), nuevo: true };
+  return { id: '', nombre: '', apellido: S.fam.apellido || '', sexo: '', fechaNac: '', grado: '', obraSocial: '', nroSocio: '', retiraCon: '', cumpleIvrit: '', alergias: '', inscribir: true, semanas: [], nuevo: true };
 }
 function addKid() { syncKids(); S.kids.push(blankKid()); render(); setTimeout(function () { var cards = $$('.kid'); cards[cards.length - 1].scrollIntoView({ behavior: 'smooth' }); }, 50); }
 
@@ -415,11 +415,11 @@ function kidCard(k, i) {
     '<div class="grid2">' + f('Nombre *', 'nombre') + f('Apellido', 'apellido') +
     '<div><label>Nena o varón *</label><select data-k="' + i + '" data-f="sexo" onchange="kidField(this)"><option value="">Elegí…</option><option value="N"' + (k.sexo === 'N' ? ' selected' : '') + '>Nena</option><option value="V"' + (k.sexo === 'V' ? ' selected' : '') + '>Varón</option></select></div>' +
     '<div><label>Sala / grado este año *</label><select data-k="' + i + '" data-f="grado" onchange="kidField(this)" title="' + GRADO_HINT + '">' + gradoOptions(k.grado, k.sexo) + '</select></div>' +
-    f('Fecha de nacimiento', 'fechaNac', 'type="date"') + f('Cumpleaños en Ivrit', 'cumpleIvrit') +
-    f('Obra social', 'obraSocial') + f('N° de socio', 'nroSocio') + '</div>' +
-    f('¿Con quién se retira?', 'retiraCon') +
+    f('Fecha de nacimiento *', 'fechaNac', 'type="date"') + f('Cumpleaños en Ivrit', 'cumpleIvrit') +
+    f('Obra social *', 'obraSocial', 'placeholder="Si no tiene, escribí: No tiene"') + f('N° de socio *', 'nroSocio', 'placeholder="Si no tiene, escribí: -"') + '</div>' +
+    f('¿Con quién se retira? *', 'retiraCon', 'placeholder="Ej: Mamá, papá o la abuela Sara"') +
     '<div><label>Alergias u observaciones</label><textarea data-k="' + i + '" data-f="alergias" oninput="kidField(this)">' + esc(k.alergias) + '</textarea></div>' +
-    '<label>Semanas *</label><div class="weeks">' + weeks + '</div>' +
+    '<label>Semanas * <span class="tiny muted">(marcá las que viene)</span></label><div class="weeks">' + weeks + '</div>' +
     '<div class="tot" style="margin-top:10px"><div id="ks' + i + '" class="muted small"></div><div class="price" id="kp' + i + '"></div></div>' +
     (k.nuevo ? '<button class="btn ghost sm" onclick="removeKid(' + i + ')">Quitar</button>' : '') + '</div>';
 }
@@ -432,7 +432,7 @@ function kidField(el) {
   if (el.dataset.f === 'sexo') { syncKids(); if (k.grado && !salaFor(S.cfg, k.grado, k.sexo)) k.grado = ''; render(); return; }
   if (el.dataset.f === 'nombre') return; updateKidTotals();
 }
-function toggleKid(i, on) { syncKids(); S.kids[i].inscribir = on; if (on && !S.kids[i].semanas.length) S.kids[i].semanas = S.cfg.semanas.map(function (w) { return w.numero; }); render(); }
+function toggleKid(i, on) { syncKids(); S.kids[i].inscribir = on; render(); }
 function removeKid(i) { syncKids(); S.kids.splice(i, 1); render(); }
 function toggleWeek(i, n, el) {
   var w = S.kids[i].semanas, at = w.indexOf(n);
@@ -464,7 +464,11 @@ function nextKids() {
     if (!k.sexo) { $('#er').textContent = 'Indicá si ' + k.nombre + ' es nena o varón.'; return; }
     if (!k.grado) { $('#er').textContent = 'Elegí la sala/grado de ' + k.nombre + '.'; return; }
     if (!salaFor(S.cfg, k.grado, k.sexo)) { $('#er').textContent = 'No hay sala para ' + k.nombre + ' con ese grado. Consultá en la oficina.'; return; }
-    if (!k.semanas.length) { $('#er').textContent = 'Elegí las semanas de ' + k.nombre + '.'; return; }
+    if (!k.fechaNac) { $('#er').textContent = 'Falta la fecha de nacimiento de ' + k.nombre + '.'; return; }
+    if (!String(k.obraSocial || '').trim()) { $('#er').textContent = 'Falta la obra social de ' + k.nombre + ' (si no tiene, escribí "No tiene").'; return; }
+    if (!String(k.nroSocio || '').trim()) { $('#er').textContent = 'Falta el N° de socio de ' + k.nombre + ' (si no tiene, escribí "-").'; return; }
+    if (!String(k.retiraCon || '').trim()) { $('#er').textContent = 'Falta con quién se retira ' + k.nombre + '.'; return; }
+    if (!k.semanas.length) { $('#er').textContent = 'Marcá las semanas que viene ' + k.nombre + '.'; return; }
   }
   go('resumen');
 }

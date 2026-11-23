@@ -552,7 +552,7 @@ function enrollForm(i) {
   $('#ef' + i).innerHTML = '<div class="card" style="background:#fbfaf6"><div class="grid2">' + fld('Nombre', 'kN', k.nombre) + fld('Apellido', 'kA', k.apellido) +
     sel('Nena / Varón', 'kS', [['', 'Elegí…'], ['N', 'Nena'], ['V', 'Varón']], k.sexo) + sel('Sala/grado este año', 'kG', gradoOpts(), k.grado) +
     sel('Sala en la colonia', 'kSala', salaOpts(), ins ? ins.sala : '') + fld('Alergias / observaciones', 'kAl', k.alergias) +
-    fld('Obra social', 'kOs', k.obraSocial) + fld('N° socio', 'kNs', k.nroSocio) + fld('Se retira con', 'kRe', k.retiraCon) + fld('Fecha de nacimiento', 'kFn', k.fechaNac, 'type="date"') + '</div>' +
+    fld('Obra social *', 'kOs', k.obraSocial) + fld('N° socio *', 'kNs', k.nroSocio) + fld('Se retira con *', 'kRe', k.retiraCon) + fld('Fecha de nacimiento *', 'kFn', k.fechaNac ? String(k.fechaNac).substring(0, 10) : '', 'type="date"') + '</div>' +
     '<label>Semanas</label>' + weekChecks('kW', ins ? ins.semanasLista : META.semanas.map(function (w) { return w.numero; })) +
     (can('directora') ? sel('Early bird', 'kEb', [['', 'Automático (según fecha)'], ['si', 'Dar early bird'], ['no', 'Sin early bird']], '') : '') +
     '<label class="chk on"><input type="checkbox" id="kMail" checked><span>Mandar mail a la familia con el detalle</span></label>' +
@@ -671,7 +671,7 @@ function niPick(id) {
 }
 function niForm(d) {
   var f = d ? d.familia : {};
-  NI = { familiaId: d ? f.id : '', kids: d ? d.chicos.map(function (k) { return { id: k.id, nombre: k.nombre, apellido: k.apellido, sexo: k.sexo, grado: k.grado, alergias: k.alergias, salaAnterior: k.salaAnterior, gradoSugerido: k.gradoSugerido, obraSocial: k.obraSocial, nroSocio: k.nroSocio, retiraCon: k.retiraCon, ins: k.inscripcion }; }) : [] };
+  NI = { familiaId: d ? f.id : '', kids: d ? d.chicos.map(function (k) { return { id: k.id, nombre: k.nombre, apellido: k.apellido, sexo: k.sexo, grado: k.grado, alergias: k.alergias, salaAnterior: k.salaAnterior, gradoSugerido: k.gradoSugerido, fechaNac: k.fechaNac, obraSocial: k.obraSocial, nroSocio: k.nroSocio, retiraCon: k.retiraCon, ins: k.inscripcion }; }) : [] };
   if (!NI.kids.length) NI.kids.push({ id: '', nombre: '', apellido: '', nuevo: true });
   var h = '<div class="card"><h2>' + (d ? 'Familia ' + esc(f.apellido) : 'Familia nueva') + '</h2><div class="grid2">' +
     fld('Apellido *', 'nAp', f.apellido) + fld('Email (para el carnet)', 'nEm', f.email, 'type="email"') + fld('Nombre mamá *', 'nNm', f.nombreMama) + fld('Celular mamá *', 'nCm', f.celMama, 'inputmode="tel"') +
@@ -692,7 +692,9 @@ function niKids() {
       '<label class="toggle"><input type="checkbox" ' + (on ? 'checked' : '') + ' onchange="niSync();NI.kids[' + i + '].on=this.checked;niKids()"><span></span></label></div>' +
       (on ? '<div class="grid2">' + fld('Nombre *', 'nk' + i + 'n', k.nombre) + fld('Apellido', 'nk' + i + 'a', k.apellido) +
         sel('Nena / Varón *', 'nk' + i + 's', [['', 'Elegí…'], ['N', 'Nena'], ['V', 'Varón']], k.sexo) + sel('Sala/grado este año *', 'nk' + i + 'g', gradoOpts(), k.grado) +
-        sel('Sala en la colonia', 'nk' + i + 'sala', salaOpts(), k.ins ? k.ins.sala : '') + fld('Alergias / observaciones', 'nk' + i + 'al', k.alergias) + '</div>' +
+        sel('Sala en la colonia', 'nk' + i + 'sala', salaOpts(), k.ins ? k.ins.sala : '') + fld('Alergias / observaciones', 'nk' + i + 'al', k.alergias) +
+        fld('Fecha de nacimiento *', 'nk' + i + 'fn', k.fechaNac ? String(k.fechaNac).substring(0, 10) : '', 'type="date"') + fld('Obra social *', 'nk' + i + 'os', k.obraSocial, 'placeholder="Si no tiene: No tiene"') +
+        fld('N° de socio *', 'nk' + i + 'ns', k.nroSocio, 'placeholder="Si no tiene: -"') + fld('Se retira con *', 'nk' + i + 're', k.retiraCon) + '</div>' +
         '<label>Semanas</label>' + weekChecks('nk' + i + 'w', k.ins ? k.ins.semanasLista : META.semanas.map(function (w) { return w.numero; })) : '') + '</div>';
   }).join('');
 }
@@ -700,13 +702,14 @@ function niSync() {
   NI.kids.forEach(function (k, i) {
     if (!$('#nk' + i + 'n')) return;
     k.nombre = v('nk' + i + 'n'); k.apellido = v('nk' + i + 'a'); k.sexo = v('nk' + i + 's'); k.grado = v('nk' + i + 'g'); k.sala = v('nk' + i + 'sala'); k.alergias = v('nk' + i + 'al');
+    k.fechaNac = v('nk' + i + 'fn'); k.obraSocial = v('nk' + i + 'os'); k.nroSocio = v('nk' + i + 'ns'); k.retiraCon = v('nk' + i + 're');
     k.semanas = weeksOf('nk' + i + 'w');
   });
 }
 function niSave(btn) {
   niSync();
   var chicos = NI.kids.filter(function (k) { return k.on && k.nombre; }).map(function (k) {
-    return { id: k.id, nombre: k.nombre, apellido: k.apellido || v('nAp'), sexo: k.sexo, grado: k.grado, sala: k.sala, alergias: k.alergias, obraSocial: k.obraSocial, nroSocio: k.nroSocio, retiraCon: k.retiraCon, inscribir: true, semanas: k.semanas };
+    return { id: k.id, nombre: k.nombre, apellido: k.apellido || v('nAp'), sexo: k.sexo, grado: k.grado, sala: k.sala, alergias: k.alergias, obraSocial: k.obraSocial, nroSocio: k.nroSocio, retiraCon: k.retiraCon, fechaNac: k.fechaNac, inscribir: true, semanas: k.semanas };
   });
   if (!chicos.length) return toast('Elegí al menos un chico', true);
   var p = { familiaId: NI.familiaId, mandarMail: v('nMail'), chicos: chicos,
