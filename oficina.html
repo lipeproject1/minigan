@@ -842,6 +842,7 @@ VIEWS.gastos = function () {
       '<div id="xPagoW" class="hide">' + fld('¿Quién lo pagó? (a quién hay que devolverle)', 'xPg', USER.nombre) + '</div>' +
       '<label>¿Qué se compró?</label><textarea id="xD" placeholder="Ej: 20 globos, cartulinas y fibrones para Gan 4"></textarea>' +
       '<p class="tiny muted">"Plata propia" = la persona lo pagó de su bolsillo y hay que devolvérselo.</p>' +
+      (can('directora') ? '<label class="chk on"><input type="checkbox" id="xPriv" checked onchange="this.parentNode.classList.toggle(\'on\',this.checked)"><span>🔒 <b>Privado</b>: la secretaria no ve este gasto</span></label>' : '') +
       '<div class="actions"><button class="btn acc block" onclick="saveExp(this)">Guardar gasto</button></div></div>';
     h += '<div class="stats"><div class="stat"><b>' + money(d.total) + '</b><span>' + (USER.rol === 'jefa' ? 'mis gastos' : 'total gastos') + '</span></div>' +
       '<div class="stat"><b>' + money(d.caja.entregado) + '</b><span>caja chica entregada</span></div><div class="stat"><b style="color:' + (d.caja.queda < 0 ? 'var(--bad)' : 'var(--ok)') + '">' + money(d.caja.queda) + '</b><span>queda en caja chica</span></div></div>';
@@ -853,10 +854,11 @@ VIEWS.gastos = function () {
     if (d.porCategoria.length) h += '<div class="card"><h3>Por categoría</h3>' + d.porCategoria.map(function (c) { return '<div class="tot"><div>' + esc(c.categoria) + '</div><div class="price">' + money(c.monto) + '</div></div>'; }).join('') + '</div>';
     EXP_DATA = d;
     h += '<div class="card"><div class="kid-h"><h3 style="margin:0">Gastos cargados</h3>' + (d.gastos.length ? '<button class="btn sec sm" onclick="printExp()">🖨 Imprimir informe</button>' : '') + '</div>' + (d.gastos.length ? '' : '<p class="muted">Todavía no hay gastos.</p>') + d.gastos.filter(function (g) { return g.estado !== 'Rechazado'; }).map(function (g) {
-      return '<div class="kid"><div class="kid-h"><div><b>' + money(g.monto) + '</b> · ' + esc(g.lugar) + (g.reembolsar ? (g.estado === 'Reembolsado' ? ' <span class="pill ok">devuelto a ' + esc(g.pagadoPor || g.cargadoPor) + '</span>' : ' <span class="pill warn">devolver a ' + esc(g.pagadoPor || g.cargadoPor) + '</span>') : '') +
+      return '<div class="kid"><div class="kid-h"><div><b>' + money(g.monto) + '</b> · ' + esc(g.lugar) + (g.privado ? ' <span class="pill">🔒 privado</span>' : '') + (g.reembolsar ? (g.estado === 'Reembolsado' ? ' <span class="pill ok">devuelto a ' + esc(g.pagadoPor || g.cargadoPor) + '</span>' : ' <span class="pill warn">devolver a ' + esc(g.pagadoPor || g.cargadoPor) + '</span>') : '') +
         '<div class="small muted">' + fdate(g.fecha) + ' · ' + esc(g.categoria) + ' · ' + esc(g.para) + ' · ' + esc(g.metodo) + ' · cargó ' + esc(g.cargadoPor) + '</div>' + (g.descripcion ? '<div class="small">' + esc(g.descripcion) + '</div>' : '') + '</div></div>' +
         '<div class="actions">' + g.fotosLista.map(function (f, i) { return '<button class="btn sec sm" onclick="viewFile(\'' + f + '\')">🧾 Ticket ' + (g.fotosLista.length > 1 ? i + 1 : '') + '</button>'; }).join('') +
         (can('directora,secretaria') && g.reembolsar ? '<button class="btn ghost sm" onclick="reviewExp(\'' + g.id + '\',\'' + (g.estado === 'Reembolsado' ? 'Registrado' : 'Reembolsado') + '\')">' + (g.estado === 'Reembolsado' ? 'Deshacer devolución' : 'Ya se le devolvió') + '</button>' : '') +
+        (can('directora') ? '<button class="btn ghost sm" onclick="privExp(\'' + g.id + '\',' + (g.privado ? 'false' : 'true') + ')">' + (g.privado ? 'Mostrar a la secretaria' : '🔒 Hacer privado') + '</button>' : '') +
         ((can('directora,secretaria') || g.cargadoPor === USER.nombre) ? '<button class="btn ghost sm" onclick="delExp(\'' + g.id + '\')">Borrar</button>' : '') + '</div></div>';
     }).join('') + '</div>';
     V(h);
@@ -871,7 +873,7 @@ function expFiles(input) {
   }).catch(fail);
 }
 function saveExp(btn) {
-  var p = { monto: numIn(v('xM')), fecha: v('xF'), lugar: v('xL'), categoria: v('xC'), para: v('xP'), metodo: v('xMe'), pagadoPor: v('xPg'), descripcion: v('xD'), fotos: EXP_FILES.map(function (f) { return { mime: f.mime, data: f.data, name: f.name }; }) };
+  var p = { monto: numIn(v('xM')), fecha: v('xF'), lugar: v('xL'), categoria: v('xC'), para: v('xP'), metodo: v('xMe'), pagadoPor: v('xPg'), privado: $('#xPriv') ? $('#xPriv').checked : false, descripcion: v('xD'), fotos: EXP_FILES.map(function (f) { return { mime: f.mime, data: f.data, name: f.name }; }) };
   if (!p.monto) return toast('Poné el monto', true);
   if (!p.fotos.length && !confirm('No agregaste foto del ticket. ¿Guardar igual?')) return;
   busy(btn, call('addExpense', p)).then(function () { toast('Gasto guardado ✓'); VIEWS.gastos(); }).catch(fail);
@@ -890,6 +892,7 @@ function printExp() {
     '</table><script>setTimeout(function(){window.print()},300)<\/script></body></html>');
   w.document.close();
 }
+function privExp(id, on) { call('setExpensePrivate', { id: id, privado: on }).then(function () { toast(on ? 'Ahora es privado' : 'La secretaria lo puede ver'); VIEWS.gastos(); }).catch(fail); }
 function reviewExp(id, estado) { call('reviewExpense', { id: id, estado: estado }).then(function () { toast(estado); VIEWS.gastos(); }).catch(fail); }
 function delExp(id) { if (!confirm('¿Borrar este gasto?')) return; call('deleteExpense', { id: id }).then(function () { toast('Borrado'); VIEWS.gastos(); }).catch(fail); }
 function addCash(btn) { busy(btn, call('addCash', { monto: numIn(v('ccM')), entregadoA: v('ccA'), fecha: v('ccF'), nota: v('ccN') })).then(function () { toast('Guardado'); VIEWS.gastos(); }).catch(fail); }
