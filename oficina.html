@@ -730,7 +730,7 @@ function niForm(d) {
   if (!NI.kids.length) NI.kids.push({ id: '', nombre: '', apellido: '', nuevo: true });
   var h = '<div class="card"><h2>' + (d ? 'Familia ' + esc(f.apellido) : 'Familia nueva') + '</h2><div class="grid2">' +
     fld('Apellido *', 'nAp', f.apellido) + fld('Email (para el carnet)', 'nEm', f.email, 'type="email"') + fld('Nombre mamá *', 'nNm', f.nombreMama) + fld('Celular mamá *', 'nCm', f.celMama, 'inputmode="tel"') +
-    fld('Nombre papá', 'nNp', f.nombrePapa) + fld('Celular papá', 'nCp', f.celPapa, 'inputmode="tel"') + fld('Teléfono casa', 'nTc', f.telCasa) + fld('Emergencia', 'nTe', f.telEmergencia) + '</div>' +
+    fld('Nombre papá *', 'nNp', f.nombrePapa) + fld('Celular papá *', 'nCp', f.celPapa, 'inputmode="tel"') + fld('Teléfono casa', 'nTc', f.telCasa) + fld('Emergencia', 'nTe', f.telEmergencia) + '</div>' +
       '<label class="chk' + (String(f.staff) === 'SI' ? ' on' : '') + '"><input type="checkbox" id="nSt" ' + (String(f.staff) === 'SI' ? 'checked' : '') + ' onchange="this.parentNode.classList.toggle(\'on\',this.checked)"><span><b>Familia del staff</b>: sus hijos no pagan</span></label></div>' +
     '<div id="nkids"></div><button class="btn sec block" onclick="niAddKid()">+ Agregar chico</button>' +
     '<div class="card">' + (can('directora') ? sel('Early bird', 'nEb', [['', 'Automático (según fecha)'], ['si', 'Dar early bird'], ['no', 'Sin early bird']], '') : '') +

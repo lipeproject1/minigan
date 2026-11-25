@@ -303,7 +303,7 @@ function render() {
       (S.prefilled ? '<div class="banner info">¡Ya teníamos tus datos! Revisalos y corregí lo que haya cambiado.</div>' : '') +
       '<div class="grid2">' + inp('Apellido de la familia *', 'apellido', f.apellido) + inp('Email', '', S.email, 'disabled') +
       inp('Nombre de la mamá *', 'nombreMama', f.nombreMama) + inp('Celular de la mamá *', 'celMama', f.celMama, 'inputmode="tel"') +
-      inp('Nombre del papá', 'nombrePapa', f.nombrePapa) + inp('Celular del papá', 'celPapa', f.celPapa, 'inputmode="tel"') +
+      inp('Nombre del papá *', 'nombrePapa', f.nombrePapa) + inp('Celular del papá *', 'celPapa', f.celPapa, 'inputmode="tel"') +
       inp('Teléfono de casa', 'telCasa', f.telCasa, 'inputmode="tel"') + inp('Teléfono en caso de emergencia *', 'telEmergencia', f.telEmergencia, 'inputmode="tel" placeholder="Nombre y teléfono"') +
       '</div>' + inp('Dirección', 'direccion', f.direccion) +
       '<div id="er" class="err"></div><div class="actions"><button class="btn block" onclick="nextFam()">Siguiente: los chicos →</button></div></div>';
@@ -390,8 +390,10 @@ function addKid() { syncKids(); S.kids.push(blankKid()); render(); setTimeout(fu
 function nextFam() {
   var f = S.fam, miss = [];
   if (!String(f.apellido || '').trim()) miss.push('apellido');
-  if (!String(f.nombreMama || '').trim() && !String(f.nombrePapa || '').trim()) miss.push('nombre de mamá o papá');
-  if (String(f.celMama || f.celPapa || '').replace(/\D/g, '').length < 8) miss.push('un celular');
+  if (!String(f.nombreMama || '').trim()) miss.push('nombre de la mamá');
+  if (String(f.celMama || '').replace(/\D/g, '').length < 8) miss.push('celular de la mamá');
+  if (!String(f.nombrePapa || '').trim()) miss.push('nombre del papá');
+  if (String(f.celPapa || '').replace(/\D/g, '').length < 8) miss.push('celular del papá');
   if (!String(f.telEmergencia || '').trim()) miss.push('teléfono de emergencia');
   if (miss.length) { $('#er').textContent = 'Falta: ' + miss.join(', ') + '.'; return; }
   S.kids.forEach(function (k) { if (!k.apellido) k.apellido = f.apellido; });
