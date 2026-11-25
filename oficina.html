@@ -1203,6 +1203,11 @@ function renderSettings(pin) {
         fld('Notas', 'trN' + i, t.notas) + '<div class="actions"><button class="btn sm' + (t.nuevo ? '' : ' sec') + '" onclick="saveTar(this,' + i + ',\'' + esc(t.rol) + '\')">' + (t.nuevo ? '+ Agregar rol' : 'Guardar') + '</button>' +
         (t.nuevo ? '' : '<button class="btn ghost sm" onclick="delTar(\'' + esc(t.rol) + '\')">Borrar</button>') + '</div></div>';
     }).join('') + '</div>';
+  var cfgv = function (k) { var r = d.config.filter(function (c) { return c.clave === k; })[0]; return r ? r.valor : ''; };
+  h += '<div class="card"><h2>Dólar</h2><div class="tot big"><div>Cotización que usa la app</div><div>' + money(numIn(cfgv('TipoCambioUSD'))) + '</div></div>' +
+    '<p class="small muted">' + (String(cfgv('DolarAutomatico')).toUpperCase() === 'NO' ? 'Automático apagado: se carga a mano en Configuración (TipoCambioUSD).' :
+      'Se actualiza sola cada hora con el dólar blue más bajo de dolarhoy.com.') + (cfgv('DolarActualizado') ? '<br>Última: ' + esc(cfgv('DolarActualizado')) : '') + '</p>' +
+    '<div class="actions"><button class="btn sec sm" onclick="dolarAhora(this)">Actualizar ahora</button></div></div>';
   h += '<div class="card"><h2>Configuración</h2>' + d.config.map(function (c, i) {
     var long = String(c.valor).length > 60 || /\n/.test(c.valor);
     return '<label>' + esc(c.clave) + '</label>' + (long ? '<textarea id="cf' + i + '" rows="5">' + esc(c.valor) + '</textarea>' : '<input id="cf' + i + '" value="' + esc(c.valor) + '">') + '<div class="tiny muted">' + esc(c.descripcion) + '</div>';
@@ -1228,6 +1233,7 @@ function saveTar(btn, i, original) {
     .then(function (d) { SET = d; renderSettings(); toast('Tarifa guardada'); }).catch(fail);
 }
 function delTar(rol) { if (!confirm('¿Borrar la tarifa de ' + rol + '? (no cambia los sueldos ya cargados)')) return; call('saveTarifa', { original: rol, rol: rol, borrar: true }).then(function (d) { SET = d; renderSettings(); toast('Borrada'); }).catch(fail); }
+function dolarAhora(btn) { busy(btn, call('dolarAhora')).then(function (d) { SET = d; renderSettings(); toast('Dólar actualizado'); }).catch(fail); }
 function saveCfg(btn) { busy(btn, call('saveConfig', { items: SET.config.map(function (c, i) { return { clave: c.clave, valor: $('#cf' + i).value }; }) })).then(function (d) { SET = d; loadMeta(); renderSettings(); toast('Configuración guardada'); }).catch(fail); }
 function saveAcc(btn, i, id) {
   busy(btn, call('saveAccount', { id: id, alias: v('acA' + i), titular: v('acT' + i), limite: numIn(v('acL' + i)), periodoLimite: v('acP' + i), alertaPct: numIn(v('acW' + i)), orden: numIn(v('acO' + i)), mostrarPadres: v('acM' + i), activa: v('acV' + i) }))
