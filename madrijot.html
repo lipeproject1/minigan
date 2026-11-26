@@ -234,8 +234,12 @@ function calcPrice(cfg, categoria, weeks, earlyBird) {
   var total = cfg.semanas.length, n = weeks.length;
   if (!n) return null;
   var lista = n >= total ? p.mensual : Math.min(p.semanal * n, p.mensual || Infinity);
-  var desc = earlyBird ? Math.round(lista * p.eb / 100 / 100) * 100 : 0;
-  return { lista: lista, desc: desc, final: lista - desc, pct: earlyBird ? p.eb : 0, modalidad: n >= total ? 'Mensual' : (n === 1 ? '1 semana' : n + ' semanas') };
+  var desc = 0;
+  if (earlyBird && (p.mensualEB || p.semanalEB)) {
+    var mEB = p.mensualEB || p.mensual, sEB = p.semanalEB || p.semanal;
+    desc = Math.max(0, lista - (n >= total ? mEB : Math.min(sEB * n, mEB || Infinity)));
+  } else if (earlyBird) desc = Math.round(lista * p.eb / 100 / 100) * 100;
+  return { lista: lista, desc: desc, final: lista - desc, pct: earlyBird && lista ? Math.round(desc * 100 / lista) : 0, modalidad: n >= total ? 'Mensual' : (n === 1 ? '1 semana' : n + ' semanas') };
 }
 function salaFor(cfg, grado, sexo) {
   var g = norm(grado), sx = String(sexo || '').toUpperCase().charAt(0), m = null;

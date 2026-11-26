@@ -235,8 +235,12 @@ function calcPrice(cfg, categoria, weeks, earlyBird) {
   var total = cfg.semanas.length, n = weeks.length;
   if (!n) return null;
   var lista = n >= total ? p.mensual : Math.min(p.semanal * n, p.mensual || Infinity);
-  var desc = earlyBird ? Math.round(lista * p.eb / 100 / 100) * 100 : 0;
-  return { lista: lista, desc: desc, final: lista - desc, pct: earlyBird ? p.eb : 0, modalidad: n >= total ? 'Mensual' : (n === 1 ? '1 semana' : n + ' semanas') };
+  var desc = 0;
+  if (earlyBird && (p.mensualEB || p.semanalEB)) {
+    var mEB = p.mensualEB || p.mensual, sEB = p.semanalEB || p.semanal;
+    desc = Math.max(0, lista - (n >= total ? mEB : Math.min(sEB * n, mEB || Infinity)));
+  } else if (earlyBird) desc = Math.round(lista * p.eb / 100 / 100) * 100;
+  return { lista: lista, desc: desc, final: lista - desc, pct: earlyBird && lista ? Math.round(desc * 100 / lista) : 0, modalidad: n >= total ? 'Mensual' : (n === 1 ? '1 semana' : n + ' semanas') };
 }
 function salaFor(cfg, grado, sexo) {
   var g = norm(grado), sx = String(sexo || '').toUpperCase().charAt(0), m = null;
@@ -322,7 +326,7 @@ function render() {
       var pr = kidPrice(k);
       tot += pr ? pr.final : 0;
       h += '<div class="tot"><div><b>' + esc(k.nombre) + '</b><div class="small muted">' + esc(pr ? pr.sala : '') + ' · ' + esc(pr ? pr.modalidad : '') + '</div>' +
-        (pr && pr.desc ? '<div class="small" style="color:var(--ok)">Early bird ' + pr.pct + '% (−' + money(pr.desc) + ')</div>' : '') + '</div><div class="price">' + money(pr ? pr.final : 0) + '</div></div>';
+        (pr && pr.desc ? '<div class="small" style="color:var(--ok)">Precio early bird (−' + money(pr.desc) + ')</div>' : '') + '</div><div class="price">' + money(pr ? pr.final : 0) + '</div></div>';
     });
     if (c.materiales) { tot += c.materiales; h += '<div class="tot"><div>Materiales (por familia)</div><div class="price">' + money(c.materiales) + '</div></div>'; }
     if (S.estado && S.estado.esStaff && tot > 0) { h += '<div class="tot"><div>Sin cargo (familia del staff)</div><div class="price" style="color:var(--ok)">−' + money(tot) + '</div></div>'; tot = 0; }
@@ -521,6 +525,7 @@ function estadoHtml() {
   if (s.materiales) h += '<div class="tot"><div>Materiales</div><div class="price">' + money(s.materiales) + '</div></div>';
   if (s.staffDesc) h += '<div class="tot"><div>Sin cargo (familia del staff)</div><div class="price">−' + money(s.staffDesc) + '</div></div>';
   if (s.beca) h += '<div class="tot"><div>Ajuste especial</div><div class="price">−' + money(s.beca) + '</div></div>';
+  if (s.regalo) h += '<div class="tot"><div>🎁 Regalo por pagar a tiempo</div><div class="price">−' + money(s.regalo) + '</div></div>';
   h += '<div class="tot big"><div>Total</div><div>' + money(s.total) + '</div></div>';
   if (s.pagado) h += '<div class="tot"><div>Pagado</div><div class="price" style="color:var(--ok)">' + money(s.pagado) + '</div></div>';
   if (s.porConfirmar) h += '<div class="tot"><div>Comprobantes en revisión</div><div class="price" style="color:var(--warn)">' + money(s.porConfirmar) + '</div></div>';

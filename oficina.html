@@ -265,8 +265,12 @@ function calcPrice(cfg, categoria, weeks, earlyBird) {
   var total = cfg.semanas.length, n = weeks.length;
   if (!n) return null;
   var lista = n >= total ? p.mensual : Math.min(p.semanal * n, p.mensual || Infinity);
-  var desc = earlyBird ? Math.round(lista * p.eb / 100 / 100) * 100 : 0;
-  return { lista: lista, desc: desc, final: lista - desc, pct: earlyBird ? p.eb : 0, modalidad: n >= total ? 'Mensual' : (n === 1 ? '1 semana' : n + ' semanas') };
+  var desc = 0;
+  if (earlyBird && (p.mensualEB || p.semanalEB)) {
+    var mEB = p.mensualEB || p.mensual, sEB = p.semanalEB || p.semanal;
+    desc = Math.max(0, lista - (n >= total ? mEB : Math.min(sEB * n, mEB || Infinity)));
+  } else if (earlyBird) desc = Math.round(lista * p.eb / 100 / 100) * 100;
+  return { lista: lista, desc: desc, final: lista - desc, pct: earlyBird && lista ? Math.round(desc * 100 / lista) : 0, modalidad: n >= total ? 'Mensual' : (n === 1 ? '1 semana' : n + ' semanas') };
 }
 function salaFor(cfg, grado, sexo) {
   var g = norm(grado), sx = String(sexo || '').toUpperCase().charAt(0), m = null;
@@ -527,6 +531,7 @@ function renderFamily() {
     (s.materiales ? '<div class="tot"><div>Materiales</div><div class="price">' + money(s.materiales) + '</div></div>' : '') +
     (s.staffDesc ? '<div class="tot"><div>Sin cargo (familia del staff)</div><div class="price">−' + money(s.staffDesc) + '</div></div>' : '') +
     (s.beca ? '<div class="tot"><div>' + (d.beca ? 'Beca' : 'Ajuste de dirección') + '</div><div class="price">−' + money(s.beca) + '</div></div>' : '') +
+    (s.regalo ? '<div class="tot"><div>🎁 Regalo por pagar a tiempo</div><div class="price">−' + money(s.regalo) + '</div></div>' : '') +
     '<div class="tot big"><div>Total</div><div>' + money(s.total) + '</div></div>' +
     '<div class="tot"><div>Pagado</div><div class="price" style="color:var(--ok)">' + money(s.pagado) + '</div></div>' +
     (s.porConfirmar ? '<div class="tot"><div>Comprobantes por confirmar</div><div class="price" style="color:var(--warn)">' + money(s.porConfirmar) + '</div></div>' : '') +
@@ -574,6 +579,13 @@ function renderFamily() {
     '<label class="chk' + (String(pl.habilitado) === 'SI' ? ' on' : '') + '"><input type="checkbox" id="plHab" ' + (String(pl.habilitado) === 'SI' ? 'checked' : '') + '><span>Puede entrar a la colonia aunque no terminó de pagar (se le manda el carnet)</span></label>' +
     '<div class="actions"><button class="btn sec sm" onclick="savePlan(this)">Guardar plan</button></div></div>';
 
+  if (s.chicos && !s.staff) {
+    var rg = d.regalo;
+    h += '<div class="sect">🎁 Regalo por pagar a tiempo</div><div class="card" style="margin-top:4px">' +
+      (rg ? '<p>Regalo actual: <b>' + money(rg.monto) + '</b> <span class="small muted">(' + esc(rg.dadoPor || '') + ')</span></p>' : '<p class="muted small">Escribí el monto redondeado que le regalan (ej: 5% de ' + money(s.subtotal) + ' ≈ ' + money(Math.round(s.subtotal * 0.05 / 1000) * 1000) + '). 0 = sacarlo.</p>') +
+      '<div class="grid2">' + fld('Monto del regalo $', 'rgM', rg ? rg.monto : '', 'inputmode="decimal"') + fld('Nota', 'rgN', rg ? rg.motivo : 'Pago a tiempo') + '</div>' +
+      '<div class="actions"><button class="btn sec sm" onclick="saveGift(this)">Guardar regalo</button></div></div>';
+  }
   if (can('directora')) {
     h += '<div class="sect">Beca</div><div class="card" style="margin-top:4px">' + (d.beca ? '<p>Beca actual: <b>' + (d.beca.tipo === 'pct' ? d.beca.valor + '%' : money(d.beca.valor)) + '</b> ' + esc(d.beca.motivo || '') + '</p>' : '<p class="muted small">Sin beca</p>') +
       '<div class="grid2">' + sel('Tipo', 'bcT', [['monto', 'Descuento en $'], ['pct', 'Porcentaje %']], d.beca ? d.beca.tipo : 'monto') + fld('Valor', 'bcV', d.beca ? d.beca.valor : '', 'inputmode="decimal"') + '</div>' +
@@ -692,11 +704,20 @@ function sendCarnet() {
     if (!confirm('Esta familia todavía debe ' + money(s.saldo) + '. ¿Mandar el carnet igual?')) return;
     force = true;
   } else if (FAM.chicos.some(function (k) { return k.inscripcion && k.inscripcion.carnetEnviado; })) force = true;
-  call('sendCarnet', { familiaId: FAM.familia.id, force: force }).then(function (r) { toast((r.enviado ? '🎟️ ' : '') + r.motivo, !r.enviado); openFamily(FAM.familia.id); }).catch(fail);
+  call('sendCarnet', { familiaId: FAM.familia.id, force: force }).then(function (r) {
+    if (!r.enviado && r.revisar && confirm(r.motivo + '.\n¿Ya lo revisaste y querés mandarlo igual?')) {
+      return call('sendCarnet', { familiaId: FAM.familia.id, force: true }).then(function (r2) { toast((r2.enviado ? '🎟️ ' : '') + r2.motivo, !r2.enviado); openFamily(FAM.familia.id); });
+    }
+    toast((r.enviado ? '🎟️ ' : '') + r.motivo, !r.enviado); openFamily(FAM.familia.id);
+  }).catch(fail);
 }
 function savePlan(btn) {
   busy(btn, call('savePlan', { familiaId: FAM.familia.id, descripcion: v('plDesc'), cuotas: v('plCuotas'), notas: v('plNotas'), habilitado: v('plHab') }))
     .then(function (d) { famRefresh(d); toast('Plan guardado'); carnetToast(d.carnet); }).catch(fail);
+}
+function saveGift(btn) {
+  busy(btn, call('saveGift', { familiaId: FAM.familia.id, monto: numIn(v('rgM')), motivo: v('rgN') }))
+    .then(function (d) { famRefresh(d); toast('🎁 Regalo guardado'); carnetToast(d.carnet); }).catch(fail);
 }
 function saveBecaFam(btn) {
   busy(btn, call('saveBeca', { familiaId: FAM.familia.id, tipo: v('bcT'), valor: numIn(v('bcV')), motivo: v('bcM') }))
@@ -1146,7 +1167,7 @@ function renderReview() {
   });
   V(h);
 }
-function revOk(ids) { call('markReviewed', { ids: ids }).then(function (d) { REV = d; renderReview(); toast(ids.length > 1 ? ids.length + ' pagos marcados OK' : 'Marcado OK ✓'); }).catch(fail); }
+function revOk(ids) { call('markReviewed', { ids: ids }).then(function (d) { REV = d; renderReview(); toast((ids.length > 1 ? ids.length + ' pagos marcados OK' : 'Marcado OK ✓') + ((d.carnets || []).length ? ' · 🎟️ carnet enviado: ' + d.carnets.join(', ') : '')); }).catch(fail); }
 function findPay(id) {
   var all = [];
   REV.dias.forEach(function (d) { all = all.concat(d.pagos); });
@@ -1265,12 +1286,13 @@ function renderSettings(pin) {
       return '<b>' + l[0] + '</b><span><a href="' + esc(l[1]) + '" target="_blank">' + esc(l[1].replace(/^https?:\/\//, '')) + '</a> <button class="btn ghost sm" onclick="copyText(\'' + esc(l[1]) + '\')">Copiar</button></span>';
     }).join('') +
     '<b>Base de datos</b><span><a href="' + esc(d.dbUrl) + '" target="_blank">Abrir planilla</a></span><b>Carpeta Drive</b><span><a href="' + esc(d.carpetaUrl) + '" target="_blank">Abrir carpeta</a></span></div></div>';
-  h += '<div class="card"><h2>Precios</h2><p class="small muted">Todas las semanas = precio mensual. Menos semanas = precio semanal × semanas.</p><div class="scroll"><table class="t"><tr><th>Categoría</th><th>Mensual</th><th>Semanal</th><th>Early bird %</th><th></th></tr>' +
+  h += '<div class="card"><h2>Precios</h2><p class="small muted">Todas las semanas = precio mensual. Menos semanas = precio semanal × semanas. Early bird: escribí el precio redondeado (vacío = sin early bird).</p>' +
     d.precios.map(function (p, i) {
-      return '<tr><td><b>' + esc(p.categoria) + '</b>' + (p.notas ? '<div class="tiny muted">' + esc(p.notas) + '</div>' : '') + '</td><td><input id="prM' + i + '" value="' + esc(p.precioMensual) + '" inputmode="decimal" style="min-width:110px"></td>' +
-        '<td><input id="prS' + i + '" value="' + esc(p.precioSemanal) + '" inputmode="decimal" style="min-width:100px"></td><td><input id="prE' + i + '" value="' + esc(p.earlyBirdPct) + '" inputmode="decimal" style="width:70px"></td>' +
-        '<td><button class="btn sm" onclick="savePrice(this,' + i + ')">Guardar</button></td></tr>';
-    }).join('') + '</table></div></div>';
+      return '<div class="kid"><b>' + esc(p.categoria) + '</b>' + (p.notas ? '<div class="tiny muted">' + esc(p.notas) + '</div>' : '') + '<div class="grid2">' +
+        fld('Mensual', 'prM' + i, p.precioMensual, 'inputmode="decimal"') + fld('Semanal', 'prS' + i, p.precioSemanal, 'inputmode="decimal"') +
+        fld('Mensual early bird', 'prME' + i, p.precioMensualEB || '', 'inputmode="decimal"') + fld('Semanal early bird', 'prSE' + i, p.precioSemanalEB || '', 'inputmode="decimal"') + '</div>' +
+        '<div class="actions"><button class="btn sm" onclick="savePrice(this,' + i + ')">Guardar</button></div></div>';
+    }).join('') + '</div>';
   h += '<div class="card"><h2>Tarifas por rol (sueldos)</h2><p class="small muted">Monto que se completa solo al agregar a una persona en Sueldos. Grupo: Morot, Madrijot o Staff.</p>' +
     d.tarifas.concat([{ rol: '', grupo: 'Morot', tipoPago: 'fijo', monto: '', notas: '', nuevo: true }]).map(function (t, i) {
       return '<div class="kid"><div class="grid2">' + fld('Rol', 'trR' + i, t.rol, t.nuevo ? 'placeholder="Ej: Morá Gan 3"' : '') + sel('Grupo', 'trG' + i, ['Morot', 'Madrijot', 'Staff'], t.grupo) +
@@ -1302,7 +1324,12 @@ function accRow(a, i) {
     (a.id ? '<div class="small muted">Recibido: ' + money(a.usado) + (a.limite ? ' (' + a.pct + '%)' : '') + '</div>' : '') +
     '<div class="actions"><button class="btn sm' + (a.id ? ' sec' : '') + '" onclick="saveAcc(this,\'' + i + '\',\'' + (a.id || '') + '\')">' + (a.id ? 'Guardar' : '+ Agregar cuenta') + '</button></div></div>';
 }
-function savePrice(btn, i) { var p = SET.precios[i]; busy(btn, call('savePrice', { categoria: p.categoria, precioMensual: numIn(v('prM' + i)), precioSemanal: numIn(v('prS' + i)), earlyBirdPct: numIn(v('prE' + i)) })).then(function (d) { SET = d; loadMeta(); toast('Precio guardado'); }).catch(fail); }
+function savePrice(btn, i) {
+  var p = SET.precios[i];
+  var aplicar = confirm('¿Actualizar también las inscripciones de ' + p.categoria + ' que ya están hechas con estos precios?\n(Aceptar = sí · Cancelar = solo para las nuevas)');
+  busy(btn, call('savePrice', { categoria: p.categoria, precioMensual: numIn(v('prM' + i)), precioSemanal: numIn(v('prS' + i)), precioMensualEB: numIn(v('prME' + i)), precioSemanalEB: numIn(v('prSE' + i)), aplicar: aplicar }))
+    .then(function (d) { SET = d; loadMeta(); toast('Precio guardado' + (aplicar ? ' · ' + d.cambiadas + ' inscripciones actualizadas' : '')); }).catch(fail);
+}
 function saveTar(btn, i, original) {
   busy(btn, call('saveTarifa', { original: original, rol: v('trR' + i), grupo: v('trG' + i), tipoPago: v('trT' + i), monto: numIn(v('trM' + i)), notas: v('trN' + i) }))
     .then(function (d) { SET = d; renderSettings(); toast('Tarifa guardada'); }).catch(fail);
