@@ -832,37 +832,39 @@ VIEWS.gastos = function () {
   call('expenses').then(function (d) {
     EXP_FILES = [];
     var cats = META.categoriasGasto.length ? META.categoriasGasto : ['Otros'];
-    var paras = ['General'].concat(META.salas.map(function (s) { return s.sala; }), ['Madrijot', 'Oficina']);
+    var paras = ['General', 'Peuton / Maternal', 'Gan', 'Primaria', 'VIP', 'Madrijot', 'Oficina'];
     var h = '<div class="card"><h2>📸 Cargar gasto</h2>' +
       '<label class="btn sec block" style="cursor:pointer">Sacar foto / elegir del ticket<input type="file" accept="image/*,application/pdf" capture="environment" multiple class="hide" onchange="expFiles(this)"></label>' +
       '<div class="thumbs" id="xth"></div><div class="grid2">' +
       fld('Monto *', 'xM', '', 'inputmode="decimal"') + fld('Fecha', 'xF', today(), 'type="date"') + fld('¿Dónde? (comercio)', 'xL', '') +
       sel('Categoría', 'xC', cats, cats[0]) + sel('¿Para quién?', 'xP', paras, 'General') +
-      sel('¿Cómo se pagó?', 'xMe', ['Caja chica', 'Plata propia', 'baila.mp', 'Tarjeta de crédito', 'Transferencia', 'Otro'], 'Caja chica') + '</div>' +
-      '<div id="xPagoW" class="hide">' + fld('¿Quién lo pagó? (a quién hay que devolverle)', 'xPg', USER.nombre) + '</div>' +
+      sel('¿Cómo se pagó?', 'xMe', ['Caja chica', 'Plata de la colonia', 'Plata propia', 'baila.mp', 'Tarjeta de crédito', 'Transferencia', 'Otro'], 'Caja chica') + '</div>' +
+      '<div id="xPagoW" class="hide">' + fld('¿Quién lo pagó? (a quién hay que devolverle)', 'xPg', USER.nombre) + '</div>' + expCuentaField('xCu', '', '') +
       '<label>¿Qué se compró?</label><textarea id="xD" placeholder="Ej: 20 globos, cartulinas y fibrones para Gan 4"></textarea>' +
       '<p class="tiny muted">"Plata propia" = la persona lo pagó de su bolsillo y hay que devolvérselo.</p>' +
-      (can('directora') ? '<label class="chk on"><input type="checkbox" id="xPriv" checked onchange="this.parentNode.classList.toggle(\'on\',this.checked)"><span>🔒 <b>Privado</b>: la secretaria no ve este gasto</span></label>' : '') +
+      (can('directora') ? '<label class="chk on hide" id="xPrivW"><input type="checkbox" id="xPriv" checked onchange="this.parentNode.classList.toggle(\'on\',this.checked)"><span>🔒 <b>Privado</b>: la secretaria no ve este gasto</span></label>' : '') +
       '<div class="actions"><button class="btn acc block" onclick="saveExp(this)">Guardar gasto</button></div></div>';
     h += '<div class="stats"><div class="stat"><b>' + money(d.total) + '</b><span>' + (USER.rol === 'jefa' ? 'mis gastos' : 'total gastos') + '</span></div>' +
-      '<div class="stat"><b>' + money(d.caja.entregado) + '</b><span>caja chica entregada</span></div><div class="stat"><b style="color:' + (d.caja.queda < 0 ? 'var(--bad)' : 'var(--ok)') + '">' + money(d.caja.queda) + '</b><span>queda en caja chica</span></div></div>';
+      '<div class="stat"><b>' + money(d.caja.entregado) + '</b><span>caja chica entregada</span></div>' + (d.caja.afuera ? '<div class="stat"><b style="color:var(--warn,#b7791f)">' + money(d.caja.afuera) + '</b><span>afuera (compras sin rendir)</span></div>' : '') + '<div class="stat"><b style="color:' + (d.caja.queda < 0 ? 'var(--bad)' : 'var(--ok)') + '">' + money(d.caja.queda) + '</b><span>queda en caja chica</span></div></div>';
+    if (USER.rol !== 'jefa') h += advancesCard(d);
     if (USER.rol !== 'jefa') {
       h += '<div class="card"><h3>Entregar plata a caja chica</h3><div class="grid2">' + fld('Monto', 'ccM', '', 'inputmode="decimal"') + fld('A quién', 'ccA', '') + fld('Fecha', 'ccF', today(), 'type="date"') + fld('Nota', 'ccN', '') + '</div>' +
         '<div class="actions"><button class="btn sec sm" onclick="addCash(this)">Guardar entrega</button></div>' +
         ((d.cajaMovimientos || []).length ? '<div class="small" style="margin-top:8px">' + d.cajaMovimientos.map(function (c) { return fdate(c.fecha) + ' · ' + money(c.monto) + ' → ' + esc(c.entregadoA) + (c.nota ? ' (' + esc(c.nota) + ')' : ''); }).join('<br>') + '</div>' : '') + '</div>';
     }
+    if ((d.porGrupo || []).length) h += '<div class="card"><h3>Por grupo</h3>' + d.porGrupo.map(function (c) { return '<div class="tot"><div>' + esc(c.grupo) + '</div><div class="price">' + money(c.monto) + '</div></div>'; }).join('') + '</div>';
     if (d.porCategoria.length) h += '<div class="card"><h3>Por categoría</h3>' + d.porCategoria.map(function (c) { return '<div class="tot"><div>' + esc(c.categoria) + '</div><div class="price">' + money(c.monto) + '</div></div>'; }).join('') + '</div>';
     EXP_DATA = d;
     h += '<div class="card"><div class="kid-h"><h3 style="margin:0">Gastos cargados</h3>' + (d.gastos.length ? '<button class="btn sec sm" onclick="printExp()">🖨 Imprimir informe</button>' : '') + '</div>' + (d.gastos.length ? '' : '<p class="muted">Todavía no hay gastos.</p>') + d.gastos.filter(function (g) { return g.estado !== 'Rechazado'; }).map(function (g) {
       return '<div class="kid"><div class="kid-h"><div><b>' + money(g.monto) + '</b> · ' + esc(g.lugar) + (g.privado ? ' <span class="pill">🔒 privado</span>' : '') + (g.reembolsar ? (g.estado === 'Reembolsado' ? ' <span class="pill ok">devuelto a ' + esc(g.pagadoPor || g.cargadoPor) + '</span>' : ' <span class="pill warn">devolver a ' + esc(g.pagadoPor || g.cargadoPor) + '</span>') : '') +
-        '<div class="small muted">' + fdate(g.fecha) + ' · ' + esc(g.categoria) + ' · ' + esc(g.para) + ' · ' + esc(g.metodo) + ' · cargó ' + esc(g.cargadoPor) + '</div>' + (g.descripcion ? '<div class="small">' + esc(g.descripcion) + '</div>' : '') + '</div></div>' +
+        '<div class="small muted">' + fdate(g.fecha) + ' · ' + esc(g.categoria) + ' · ' + esc(g.grupo || g.para) + ' · ' + esc(g.metodo) + (g.cuentaPago ? ' (' + esc(g.cuentaPago) + ')' : '') + ' · cargó ' + esc(g.cargadoPor) + '</div>' + (g.descripcion ? '<div class="small">' + esc(g.descripcion) + '</div>' : '') + '</div></div>' +
         '<div class="actions">' + g.fotosLista.map(function (f, i) { return '<button class="btn sec sm" onclick="viewFile(\'' + f + '\')">🧾 Ticket ' + (g.fotosLista.length > 1 ? i + 1 : '') + '</button>'; }).join('') +
         (can('directora,secretaria') && g.reembolsar ? '<button class="btn ghost sm" onclick="reviewExp(\'' + g.id + '\',\'' + (g.estado === 'Reembolsado' ? 'Registrado' : 'Reembolsado') + '\')">' + (g.estado === 'Reembolsado' ? 'Deshacer devolución' : 'Ya se le devolvió') + '</button>' : '') +
-        (can('directora') ? '<button class="btn ghost sm" onclick="privExp(\'' + g.id + '\',' + (g.privado ? 'false' : 'true') + ')">' + (g.privado ? 'Mostrar a la secretaria' : '🔒 Hacer privado') + '</button>' : '') +
-        ((can('directora,secretaria') || g.cargadoPor === USER.nombre) ? '<button class="btn ghost sm" onclick="delExp(\'' + g.id + '\')">Borrar</button>' : '') + '</div></div>';
+        (can('directora') && g.metodo !== 'Caja chica' ? '<button class="btn ghost sm" onclick="privExp(\'' + g.id + '\',' + (g.privado ? 'false' : 'true') + ')">' + (g.privado ? 'Mostrar a la secretaria' : '🔒 Hacer privado') + '</button>' : '') +
+        ((can('directora,secretaria') || g.cargadoPor === USER.nombre) ? '<button class="btn ghost sm" onclick="editExp(\'' + g.id + '\')">✏️ Corregir</button><button class="btn ghost sm" onclick="delExp(\'' + g.id + '\')">Borrar</button>' : '') + '</div><div id="ge_' + g.id + '"></div></div>';
     }).join('') + '</div>';
     V(h);
-    $('#xMe').onchange = function () { $('#xPagoW').classList.toggle('hide', v('xMe') !== 'Plata propia'); };
+    $('#xMe').onchange = function () { $('#xPagoW').classList.toggle('hide', v('xMe') !== 'Plata propia'); expCuentaToggle('xCu', v('xMe')); if ($('#xPrivW')) $('#xPrivW').classList.toggle('hide', v('xMe') === 'Caja chica'); };
   }).catch(fail);
 };
 function expFiles(input) {
@@ -873,7 +875,7 @@ function expFiles(input) {
   }).catch(fail);
 }
 function saveExp(btn) {
-  var p = { monto: numIn(v('xM')), fecha: v('xF'), lugar: v('xL'), categoria: v('xC'), para: v('xP'), metodo: v('xMe'), pagadoPor: v('xPg'), privado: $('#xPriv') ? $('#xPriv').checked : false, descripcion: v('xD'), fotos: EXP_FILES.map(function (f) { return { mime: f.mime, data: f.data, name: f.name }; }) };
+  var p = { monto: numIn(v('xM')), fecha: v('xF'), lugar: v('xL'), categoria: v('xC'), para: v('xP'), metodo: v('xMe'), pagadoPor: v('xPg'), cuentaPago: v('xCu'), privado: $('#xPriv') && v('xMe') !== 'Caja chica' ? $('#xPriv').checked : false, descripcion: v('xD'), fotos: EXP_FILES.map(function (f) { return { mime: f.mime, data: f.data, name: f.name }; }) };
   if (!p.monto) return toast('Poné el monto', true);
   if (!p.fotos.length && !confirm('No agregaste foto del ticket. ¿Guardar igual?')) return;
   busy(btn, call('addExpense', p)).then(function () { toast('Gasto guardado ✓'); VIEWS.gastos(); }).catch(fail);
@@ -886,15 +888,88 @@ function printExp() {
   var td = 'style="border-bottom:1px solid #ddd;padding:5px 6px;font-size:12px"';
   w.document.write('<html><head><title>Informe de gastos</title></head><body style="font-family:Arial,sans-serif;margin:24px">' +
     '<h2 style="margin:0">Informe de gastos</h2><p style="color:#666;margin:4px 0 14px">' + esc(fdate(today())) + ' · ' + gs.length + ' gastos · total ' + money(d.total) + '</p>' +
+    ((d.porGrupo || []).length ? '<h3 style="margin:8px 0 4px">Por grupo</h3><table style="border-collapse:collapse;margin-bottom:12px">' + d.porGrupo.map(function (c) { return '<tr><td ' + td + '>' + esc(c.grupo) + '</td><td ' + td + ' align="right"><b>' + money(c.monto) + '</b></td></tr>'; }).join('') + '</table><h3 style="margin:8px 0 4px">Por categoría</h3>' : '') +
     (d.porCategoria.length ? '<table style="border-collapse:collapse;margin-bottom:16px">' + d.porCategoria.map(function (c) { return '<tr><td ' + td + '>' + esc(c.categoria) + '</td><td ' + td + ' align="right"><b>' + money(c.monto) + '</b></td></tr>'; }).join('') + '</table>' : '') +
     '<table style="border-collapse:collapse;width:100%"><tr>' + ['Fecha', 'Monto', 'Dónde', 'Categoría', 'Para', 'Cómo se pagó', 'Qué se compró', 'Cargó'].map(function (x) { return '<th ' + td + ' align="left">' + x + '</th>'; }).join('') + '</tr>' +
-    gs.map(function (g) { return '<tr><td ' + td + '>' + fdate(g.fecha) + '</td><td ' + td + ' align="right">' + money(g.monto) + '</td><td ' + td + '>' + esc(g.lugar) + '</td><td ' + td + '>' + esc(g.categoria) + '</td><td ' + td + '>' + esc(g.para) + '</td><td ' + td + '>' + esc(g.metodo) + (g.reembolsar ? ' — ' + esc(g.pagadoPor || g.cargadoPor) + (g.estado === 'Reembolsado' ? ' (devuelto)' : ' (a devolver)') : '') + '</td><td ' + td + '>' + esc(g.descripcion) + '</td><td ' + td + '>' + esc(g.cargadoPor) + '</td></tr>'; }).join('') +
+    gs.map(function (g) { return '<tr><td ' + td + '>' + fdate(g.fecha) + '</td><td ' + td + ' align="right">' + money(g.monto) + '</td><td ' + td + '>' + esc(g.lugar) + '</td><td ' + td + '>' + esc(g.categoria) + '</td><td ' + td + '>' + esc(g.grupo || g.para) + '</td><td ' + td + '>' + esc(g.metodo) + (g.cuentaPago ? ' (' + esc(g.cuentaPago) + ')' : '') + (g.reembolsar ? ' — ' + esc(g.pagadoPor || g.cargadoPor) + (g.estado === 'Reembolsado' ? ' (devuelto)' : ' (a devolver)') : '') + '</td><td ' + td + '>' + esc(g.descripcion) + '</td><td ' + td + '>' + esc(g.cargadoPor) + '</td></tr>'; }).join('') +
     '</table><script>setTimeout(function(){window.print()},300)<\/script></body></html>');
   w.document.close();
 }
 function privExp(id, on) { call('setExpensePrivate', { id: id, privado: on }).then(function () { toast(on ? 'Ahora es privado' : 'La secretaria lo puede ver'); VIEWS.gastos(); }).catch(fail); }
 function reviewExp(id, estado) { call('reviewExpense', { id: id, estado: estado }).then(function () { toast(estado); VIEWS.gastos(); }).catch(fail); }
+/** Campo "¿De qué tarjeta / cuenta?" para gastos con tarjeta o transferencia. */
+function expCuentaOpts() {
+  var o = META.cuentas.filter(function (a) { return a.activa; }).map(function (a) { return a.alias + (a.titular ? ' (' + a.titular + ')' : ''); });
+  return o.concat(['Tarjeta de Baila', 'Tarjeta de Lipe', 'Tarjeta de la colonia']);
+}
+function expCuentaField(id, val, met) {
+  var show = /tarjeta|transfer/i.test(met || '');
+  return '<div id="' + id + 'W"' + (show ? '' : ' class="hide"') + '><label id="' + id + 'L">' + (/tarjeta/i.test(met || '') ? '¿La tarjeta de quién?' : '¿Desde qué cuenta?') + '</label>' +
+    '<input id="' + id + '" list="' + id + 'DL" value="' + esc(val || '') + '" placeholder="Elegí o escribí"><datalist id="' + id + 'DL">' + expCuentaOpts().map(function (x) { return '<option value="' + esc(x) + '">'; }).join('') + '</datalist></div>';
+}
+function expCuentaToggle(id, met) {
+  var w = $('#' + id + 'W'); if (!w) return;
+  w.classList.toggle('hide', !/tarjeta|transfer/i.test(met));
+  $('#' + id + 'L').textContent = /tarjeta/i.test(met) ? '¿La tarjeta de quién?' : '¿Desde qué cuenta?';
+}
+function editExp(id) {
+  var g = EXP_DATA.gastos.filter(function (x) { return x.id === id; })[0]; if (!g) return;
+  var box = $('#ge_' + id); if (box.innerHTML) { box.innerHTML = ''; return; }
+  var cats = META.categoriasGasto.length ? META.categoriasGasto : ['Otros'], paras = ['General', 'Peuton / Maternal', 'Gan', 'Primaria', 'VIP', 'Madrijot', 'Oficina'];
+  var mets = ['Caja chica', 'Plata de la colonia', 'Plata propia', 'baila.mp', 'Tarjeta de crédito', 'Transferencia', 'Otro'];
+  var with_ = function (list, val) { return val && list.indexOf(val) < 0 ? list.concat([val]) : list; };
+  box.innerHTML = '<div class="card" style="background:#fbfaf6;margin-top:8px"><div class="grid2">' +
+    fld('Monto', 'eM_' + id, g.monto, 'inputmode="decimal"') + fld('Fecha', 'eF_' + id, String(g.fecha || '').substring(0, 10), 'type="date"') +
+    fld('Dónde', 'eL_' + id, g.lugar) + sel('Categoría', 'eC_' + id, with_(cats, g.categoria), g.categoria) +
+    sel('¿Para quién?', 'eP_' + id, with_(paras, g.grupo), g.grupo) + sel('¿Cómo se pagó?', 'eMe_' + id, with_(mets, g.metodo), g.metodo) +
+    fld('¿Quién lo pagó? (si fue plata propia)', 'ePg_' + id, g.pagadoPor || '') + expCuentaField('eCu_' + id, g.cuentaPago, g.metodo) + fld('Qué se compró', 'eD_' + id, g.descripcion) + '</div>' +
+    '<div class="actions"><button class="btn acc sm" onclick="saveEditExp(this,\'' + id + '\')">Guardar corrección</button><button class="btn ghost sm" onclick="editExp(\'' + id + '\')">Cancelar</button></div></div>';
+  $('#eMe_' + id).onchange = function () { expCuentaToggle('eCu_' + id, v('eMe_' + id)); };
+}
+function saveEditExp(btn, id) {
+  busy(btn, call('editExpense', { id: id, monto: numIn(v('eM_' + id)), fecha: v('eF_' + id), lugar: v('eL_' + id), categoria: v('eC_' + id), para: v('eP_' + id),
+    metodo: v('eMe_' + id), pagadoPor: v('ePg_' + id), cuentaPago: v('eCu_' + id), descripcion: v('eD_' + id) })).then(function () { toast('Gasto corregido ✓'); VIEWS.gastos(); }).catch(fail);
+}
 function delExp(id) { if (!confirm('¿Borrar este gasto?')) return; call('deleteExpense', { id: id }).then(function () { toast('Borrado'); VIEWS.gastos(); }).catch(fail); }
+/** Plata que se le dio a alguien para comprar, y cuando vuelve con ticket y vuelto. */
+function advancesCard(d) {
+  var ads = d.adelantos || [], pend = ads.filter(function (a) { return a.estado === 'Pendiente'; }), hechos = ads.filter(function (a) { return a.estado !== 'Pendiente'; }).slice(0, 8);
+  return '<div class="card"><h3>💵 Darle plata a alguien para comprar</h3><p class="small muted">Sale de la caja chica. Cuando vuelva con el ticket y el vuelto, tocá "Volvió".</p><div class="grid2">' +
+    fld('¿A quién?', 'adA', '') + fld('¿Cuánto le diste?', 'adM', '', 'inputmode="decimal"') + fld('Fecha', 'adF', today(), 'type="date"') + fld('¿Para comprar qué?', 'adN', '') + '</div>' +
+    '<div class="actions"><button class="btn sec sm" onclick="giveAdv(this)">Guardar</button></div>' +
+    (pend.length ? '<h3 style="margin-top:12px">Todavía no volvieron</h3>' + pend.map(function (a) {
+      return '<div class="kid"><div class="kid-h"><div><b>' + esc(a.entregadoA) + '</b> tiene ' + money(a.monto) + '<div class="small muted">' + fdate(a.fecha) + (a.nota ? ' · ' + esc(a.nota) : '') + ' · dio ' + esc(a.registradoPor) + '</div></div></div>' +
+        '<div class="actions"><button class="btn acc sm" onclick="settleForm(\'' + a.id + '\')">🧾 Volvió</button><button class="btn ghost sm" onclick="delAdv(\'' + a.id + '\')">Borrar</button></div><div id="ad_' + a.id + '"></div></div>';
+    }).join('') : '') +
+    (hechos.length ? '<div class="small" style="margin-top:8px">' + hechos.map(function (a) { return fdate(a.fecha) + ' · ' + esc(a.entregadoA) + ': le diste ' + money(a.monto) + ', gastó ' + money(a.gastado) + (a.vuelto >= 0 ? ', vuelto ' + money(a.vuelto) : ', hay que devolverle ' + money(-a.vuelto)); }).join('<br>') + '</div>' : '') + '</div>';
+}
+function giveAdv(btn) { busy(btn, call('giveAdvance', { entregadoA: v('adA'), monto: numIn(v('adM')), fecha: v('adF'), nota: v('adN') })).then(function () { toast('Guardado ✓'); VIEWS.gastos(); }).catch(fail); }
+function delAdv(id) { if (!confirm('¿Borrar esta entrega?')) return; call('deleteAdvance', { id: id }).then(function () { VIEWS.gastos(); }).catch(fail); }
+function settleForm(id) {
+  var box = $('#ad_' + id); if (box.innerHTML) { box.innerHTML = ''; return; }
+  var a = (EXP_DATA.adelantos || []).filter(function (x) { return x.id === id; })[0];
+  var cats = META.categoriasGasto.length ? META.categoriasGasto : ['Otros'];
+  EXP_FILES = [];
+  box.innerHTML = '<div class="card" style="background:#fbfaf6"><div class="grid2">' + fld('¿Cuánto gastó? (según ticket)', 'sG_' + id, '', 'inputmode="decimal" oninput="settleCalc(\'' + id + '\',' + a.monto + ')"') +
+    fld('¿Dónde compró?', 'sL_' + id, '') + sel('Categoría', 'sC_' + id, cats, cats[0]) + sel('¿Para quién?', 'sP_' + id, ['General', 'Peuton / Maternal', 'Gan', 'Primaria', 'VIP', 'Madrijot', 'Oficina'], 'General') + fld('Fecha', 'sF_' + id, today(), 'type="date"') + fld('¿Qué compró?', 'sD_' + id, a.nota || '') + '</div>' +
+    '<label class="btn sec block" style="cursor:pointer">📸 Foto del ticket<input type="file" accept="image/*,application/pdf" capture="environment" multiple class="hide" onchange="expFiles(this)"></label><div class="thumbs" id="xth"></div>' +
+    '<div class="tot" id="sV_' + id + '"><div>Vuelto que tiene que devolver</div><div class="price">' + money(a.monto) + '</div></div>' +
+    '<div class="actions"><button class="btn acc sm" onclick="settleAdv(this,\'' + id + '\')">Guardar</button></div></div>';
+}
+function settleCalc(id, dado) {
+  var vu = dado - (numIn(v('sG_' + id)) || 0);
+  $('#sV_' + id).innerHTML = vu >= 0 ? '<div>Vuelto que tiene que devolver</div><div class="price">' + money(vu) + '</div>' : '<div>Gastó de más: hay que devolverle</div><div class="price" style="color:var(--bad)">' + money(-vu) + '</div>';
+}
+function settleAdv(btn, id) {
+  var g = numIn(v('sG_' + id));
+  if (!String(v('sG_' + id)).trim() || isNaN(g)) return toast('Poné cuánto gastó (0 si no compró nada)', true);
+  busy(btn, call('settleAdvance', { id: id, gastado: g, lugar: v('sL_' + id), categoria: v('sC_' + id), para: v('sP_' + id), fecha: v('sF_' + id), descripcion: v('sD_' + id),
+    fotos: EXP_FILES.map(function (f) { return { mime: f.mime, data: f.data, name: f.name }; }) })).then(function (d) {
+    var r = d.rendido;
+    toast(r.vuelto >= 0 ? 'Listo ✓ — ' + r.entregadoA + ' devuelve ' + money(r.vuelto) : 'Listo ✓ — hay que devolverle ' + money(-r.vuelto) + ' a ' + r.entregadoA);
+    VIEWS.gastos();
+  }).catch(fail);
+}
 function addCash(btn) { busy(btn, call('addCash', { monto: numIn(v('ccM')), entregadoA: v('ccA'), fecha: v('ccF'), nota: v('ccN') })).then(function () { toast('Guardado'); VIEWS.gastos(); }).catch(fail); }
 
 // ---------------------------------------------------------------- madrijot
